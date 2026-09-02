@@ -92,6 +92,19 @@ class TodoService:
         )
         return get_list_items(result, "rows")
 
+    def list_tasks_by_projects(
+        self, user_id, project_ids, is_completed=None, limit_per_project=100
+    ):
+        return {
+            project_id: self.list_tasks(
+                user_id=user_id,
+                project_id=project_id,
+                is_completed=is_completed,
+                limit=limit_per_project,
+            )
+            for project_id in project_ids
+        }
+
     def _owned(self, user_id, task_id):
         task = flatten_row(self.db.get_row(
             database_id=self.database_id,

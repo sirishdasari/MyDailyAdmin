@@ -182,11 +182,48 @@ def list_tasks(
     due_date: str = "",
     limit: int = 100,
 ):
-    """List tasks for a user, optionally filtered by project/section/status."""
+    """List up to `limit` tasks for a user, optionally filtered by project/section/status.
+
+    Use the default limit of 100 unless the caller explicitly asks for fewer tasks.
+    """
     return services()["tasks"].list_tasks(
         user_id, project_id, section_id, is_completed,
         priority, due_date, limit
     )
+
+
+@mcp.tool()
+def list_project_tasks(
+    user_id: str,
+    include_archived_projects: bool = False,
+    is_completed: bool | None = None,
+    limit_per_project: int = 100,
+):
+    """List projects and all matching tasks for each project.
+
+    Use this when the user asks for tasks grouped by project. It returns every
+    project with a tasks array, up to `limit_per_project` tasks per project.
+    """
+    projects = services()["projects"].list_projects(
+        user_id=user_id,
+        include_archived=include_archived_projects,
+        limit=100,
+    )
+    project_ids = [project.get("$id") or project.get("id") for project in projects]
+    tasks_by_project = services()["tasks"].list_tasks_by_projects(
+        user_id=user_id,
+        project_ids=[project_id for project_id in project_ids if project_id],
+        is_completed=is_completed,
+        limit_per_project=limit_per_project,
+    )
+
+    return [
+        {
+            **project,
+            "tasks": tasks_by_project.get(project.get("$id") or project.get("id"), []),
+        }
+        for project in projects
+    ]
 
 
 @mcp.tool()
