@@ -1,116 +1,269 @@
 import os
-from typing import Any
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
-from appwrite_client import COLLECTIONS, get_database_id, get_databases
-from appwrite.query import Query
 
-port = int(os.environ.get("PORT", "8000"))
+from user_service import UserService
+from todo_service import TodoService
+from project_service import ProjectService
+from profile_service import ProfileService
 
-mcp = FastMCP(
+mcp = MCPServer(
     "MyDailyMCP",
-    host="0.0.0.0",
-    port=port,
-    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    version="2.1.0",
+    instructions=(
+        "MyDaily MCP uses Appwrite Auth Users.$id as the canonical user ID. "
+        "The profiles, projects and tasks tables store this value in userId. "
+        "Tasks additionally reference projects through projectId."
+    ),
 )
 
-def _doc_to_dict(document: Any) -> dict[str, Any]:
-    if hasattr(document, "model_dump"):
-        return document.model_dump()
-    return dict(document)
+_services = {}
 
-def _list(collection: str, queries: list[str]) -> dict[str, Any]:
-    result = get_databases().list_documents(
-        database_id=get_database_id(),
-        collection_id=COLLECTIONS[collection],
-        queries=queries,
-    )
-    data = _doc_to_dict(result)
-    data["documents"] = [_doc_to_dict(d) for d in data.get("documents", [])]
-    return data
+
+def services():
+    if not _services:
+        _services["users"] = UserService()
+        _services["tasks"] = TodoService()
+        _services["projects"] = ProjectService()
+        _services["profiles"] = ProfileService()
+    return _services
+
+
+# ---------------- Users ----------------
 
 @mcp.tool()
-def list_tasks(
-    completed: bool | None = None,
-    project_id: str | None = None,
-    user_id: str | None = None,
-    limit: int = 200,
-    offset: int = 0,
-) -> dict[str, Any]:
-    """Admin-level task listing. No authenticated user is assumed.
-    Omit user_id to list tasks across all users; provide it only when filtering."""
-    limit = max(1, min(int(limit), 200))
-    offset = max(0, int(offset))
-    q = [Query.order_asc("dueDate")]
-    if completed is not None:
-        q.append(Query.equal("isCompleted", completed))
-    if project_id is not None:
-        q.append(Query.equal("projectId", project_id))
-    if user_id is not None:
-        q.append(Query.equal("userId", user_id))
-    q += [Query.limit(limit), Query.offset(offset)]
-    return _list("tasks", q)
+def list_users(limit: int = 25):
+    """List Appwrite Auth users. id is the Appwrite Users.$id."""
+    return services()["users"].list_users(limit)
+
+
+@mcp.tool()
+def search_users(query: str, limit: int = 25):
+    """Search Appwrite Auth users by name/email."""
+    return services()["users"].search_users(query, limit)
+
+
+@mcp.tool()
+def get_user(user_id: str):
+    """Get an Appwrite Auth user by $id."""
+    return services()["users"].get_user(user_id)
+
+
+# ---------------- Profiles ----------------
+
+@mcp.tool()
+def get_profile(user_id: str):
+    """Get the profile where profiles.userId equals the Appwrite Auth $id."""
+    return services()["profiles"].get_profile(user_id)
+
+
+@mcp.tool()
+def update_profile(
+    user_id: str,
+    display_name: str = "",
+    avatar_url: str = "",
+    timezone: str = "",
+    week_start_day: int | None = None,
+    theme: str = "",
+    default_project_id: str = "",
+    onboarding_complete: bool | None = None,
+):
+    """Update a user's profile."""
+    return services()["profiles"].update_profile(
+        user_id, display_name, avatar_url, timezone,
+        week_start_day, theme, default_project_id, onboarding_complete
+    )
+
+
+# ---------------- Projects ----------------
 
 @mcp.tool()
 def list_projects(
-    archived: bool | None = None,
-    user_id: str | None = None,
-    limit: int = 200,
-    offset: int = 0,
-) -> dict[str, Any]:
-    """Admin-level project listing. Omit user_id to list projects across all users."""
-    limit = max(1, min(int(limit), 200))
-    offset = max(0, int(offset))
-    q = [Query.order_asc("order")]
-    if archived is not None:
-        q.append(Query.equal("isArchived", archived))
-    if user_id is not None:
-        q.append(Query.equal("userId", user_id))
-    q += [Query.limit(limit), Query.offset(offset)]
-    return _list("projects", q)
+    user_id: str,
+    include_archived: bool = False,
+    limit: int = 100,
+):
+    """List projects belonging to an Appwrite Auth user."""
+    return services()["projects"].list_projects(
+        user_id, include_archived, limit
+    )
+
 
 @mcp.tool()
-def list_profiles(limit: int = 200, offset: int = 0) -> dict[str, Any]:
-    """Admin-level profile listing."""
-    limit = max(1, min(int(limit), 200))
-    offset = max(0, int(offset))
-    return _list("profiles", [
-        Query.order_asc("displayName"),
-        Query.limit(limit),
-        Query.offset(offset),
-    ])
+def get_project(user_id: str, project_id: str):
+    """Get a project owned by the supplied Appwrite Auth user."""
+    return services()["projects"].get_project(user_id, project_id)
+
 
 @mcp.tool()
-def get_task(task_id: str) -> dict[str, Any]:
-    """Get any task by Appwrite document ID."""
-    return _doc_to_dict(get_databases().get_document(
-        database_id=get_database_id(),
-        collection_id=COLLECTIONS["tasks"],
-        document_id=task_id,
-    ))
+def create_project(
+    user_id: str,
+    name: str,
+    color: str = "",
+    icon: str = "",
+    view_style: str = "",
+    parent_id: str = "",
+    is_favorite: bool = False,
+    is_archived: bool = False,
+    order: float = 0,
+):
+    """Create a project. projects.userId is set to the Appwrite Auth $id."""
+    return services()["projects"].create_project(
+        user_id, name, color, icon, view_style, parent_id,
+        is_favorite, is_archived, order
+    )
+
 
 @mcp.tool()
-def get_profile(user_id: str) -> dict[str, Any] | None:
-    """Get any profile by MyDaily/Appwrite user ID."""
-    result = _list("profiles", [Query.equal("userId", user_id), Query.limit(1)])
-    docs = result.get("documents", [])
-    return docs[0] if docs else None
+def update_project(
+    user_id: str,
+    project_id: str,
+    name: str = "",
+    color: str = "",
+    icon: str = "",
+    view_style: str = "",
+    parent_id: str = "",
+    is_favorite: bool | None = None,
+    is_archived: bool | None = None,
+    order: float | None = None,
+):
+    """Update a project owned by the supplied Appwrite Auth user."""
+    return services()["projects"].update_project(
+        user_id, project_id, name, color, icon, view_style,
+        parent_id, is_favorite, is_archived, order
+    )
+
 
 @mcp.tool()
-def search_users_by_name(query: str, limit: int = 20) -> list[dict[str, Any]]:
-    """Search MyDaily profiles by display name."""
-    if not query.strip():
-        return []
-    result = _list("profiles", [
-        Query.search("displayName", query),
-        Query.is_not_null("displayName"),
-        Query.limit(max(1, min(int(limit), 100))),
-    ])
-    return [
-        {"user_id": d["userId"], "display_name": d["displayName"]}
-        for d in result.get("documents", [])
-        if d.get("displayName")
-    ]
+def delete_project(user_id: str, project_id: str):
+    """Delete a project owned by the supplied Appwrite Auth user."""
+    return services()["projects"].delete_project(user_id, project_id)
+
+
+# ---------------- Tasks ----------------
+
+@mcp.tool()
+def add_task(
+    user_id: str,
+    content: str,
+    project_id: str = "",
+    section_id: str = "",
+    parent_id: str = "",
+    description: str = "",
+    label_ids: list[str] | None = None,
+    priority: int = 4,
+    order: float = 0,
+    day_order: float = 0,
+    due_date: str = "",
+    due_string: str = "",
+    due_timezone: str = "",
+    due_is_recurring: bool = False,
+    duration: int | None = None,
+    duration_unit: str = "",
+    assigned_by_uid: str = "",
+    responsible_uid: str = "",
+):
+    """Create a task. tasks.userId is set to the Appwrite Auth $id."""
+    return services()["tasks"].add_task(
+        user_id, content, project_id, section_id, parent_id, description,
+        label_ids, priority, order, day_order, due_date, due_string,
+        due_timezone, due_is_recurring, duration, duration_unit,
+        assigned_by_uid, responsible_uid
+    )
+
+
+@mcp.tool()
+def list_tasks(
+    user_id: str,
+    project_id: str = "",
+    section_id: str = "",
+    is_completed: bool | None = None,
+    priority: int | None = None,
+    due_date: str = "",
+    limit: int = 100,
+):
+    """List tasks for a user, optionally filtered by project/section/status."""
+    return services()["tasks"].list_tasks(
+        user_id, project_id, section_id, is_completed,
+        priority, due_date, limit
+    )
+
+
+@mcp.tool()
+def get_task(user_id: str, task_id: str):
+    """Get a task only if tasks.userId matches the supplied Auth $id."""
+    return services()["tasks"].get_task(user_id, task_id)
+
+
+@mcp.tool()
+def update_task(
+    user_id: str,
+    task_id: str,
+    content: str = "",
+    description: str = "",
+    project_id: str = "",
+    section_id: str = "",
+    parent_id: str = "",
+    label_ids: list[str] | None = None,
+    priority: int | None = None,
+    order: float | None = None,
+    day_order: float | None = None,
+    due_date: str = "",
+    due_string: str = "",
+    due_timezone: str = "",
+    due_is_recurring: bool | None = None,
+    duration: int | None = None,
+    duration_unit: str = "",
+    assigned_by_uid: str = "",
+    responsible_uid: str = "",
+    is_completed: bool | None = None,
+):
+    """Update a task owned by the supplied Appwrite Auth user."""
+    return services()["tasks"].update_task(
+        user_id, task_id, content, description, project_id, section_id,
+        parent_id, label_ids, priority, order, day_order, due_date,
+        due_string, due_timezone, due_is_recurring, duration,
+        duration_unit, assigned_by_uid, responsible_uid, is_completed
+    )
+
+
+@mcp.tool()
+def complete_task(user_id: str, task_id: str):
+    """Mark a task complete."""
+    return services()["tasks"].complete_task(user_id, task_id)
+
+
+@mcp.tool()
+def delete_task(user_id: str, task_id: str):
+    """Delete a task owned by the supplied Appwrite Auth user."""
+    return services()["tasks"].delete_task(user_id, task_id)
+
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    port = int(os.environ.get("PORT", "8000"))
+
+    allowed_hosts = [
+        x.strip() for x in os.environ.get("MCP_ALLOWED_HOSTS", "").split(",")
+        if x.strip()
+    ]
+    allowed_origins = [
+        x.strip() for x in os.environ.get("MCP_ALLOWED_ORIGINS", "").split(",")
+        if x.strip()
+    ]
+
+    kwargs = {
+        "transport": "streamable-http",
+        "host": "0.0.0.0",
+        "port": port,
+        "streamable_http_path": "/mcp",
+        "stateless_http": True,
+        "json_response": True,
+    }
+
+    if allowed_hosts or allowed_origins:
+        kwargs["transport_security"] = TransportSecuritySettings(
+            allowed_hosts=allowed_hosts or None,
+            allowed_origins=allowed_origins or None,
+        )
+
+    mcp.run(**kwargs)

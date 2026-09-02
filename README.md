@@ -1,44 +1,130 @@
-# MyDaily MCP — Admin Data Access
+# MyDaily MCP v2.1
 
-This version intentionally does NOT authenticate a ChatGPT user and does NOT
-derive a user from the MCP session.
+MCP Python SDK v2 server for the existing MyDaily Appwrite schema.
 
-It uses one server-side Appwrite API key and exposes read-oriented admin tools
-that can query data across the MyDaily database.
+## Canonical user relationship
 
-## Included tools
+The Appwrite Authentication user's `$id` is the canonical user ID.
 
-- `list_tasks` — all tasks by default; optional `user_id`, project and completion filters
-- `list_projects` — all projects by default; optional filters
-- `list_profiles` — all profiles
-- `get_task` — any task by document ID
-- `get_profile` — any profile by MyDaily/Appwrite user ID
-- `search_users_by_name` — profile search
+It is stored as:
+
+- `profiles.userId`
+- `projects.userId`
+- `tasks.userId`
+
+Therefore:
+
+`Appwrite Users.$id == profiles.userId == projects.userId == tasks.userId`
+
+Tasks additionally use:
+
+`tasks.projectId == projects.$id`
+
+## Actual tables
+
+### tasks
+
+`$id, userId, projectId, sectionId, parentId, content, description, labelIds, priority, order, dayOrder, isCompleted, completedAt, dueDate, dueString, dueTimezone, dueIsRecurring, duration, durationUnit, noteCount, postponedCount, assignedByUid, responsibleUid, $createdAt, $updatedAt`
+
+### projects
+
+`$id, userId, name, color, icon, viewStyle, parentId, isFavorite, isArchived, order, $createdAt, $updatedAt`
+
+### profiles
+
+`$id, userId, displayName, avatarUrl, timezone, weekStartDay, theme, defaultProjectId, onboardingComplete, $createdAt, $updatedAt`
 
 ## Environment variables
 
-Set these in Render or your local environment:
+```env
+APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+APPWRITE_PROJECT_ID=your_project_id
+APPWRITE_API_KEY=your_server_api_key
+APPWRITE_DATABASE_ID=your_database_id
 
-APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
-APPWRITE_PROJECT_ID=6a7a2ab20015ba95285e
-APPWRITE_DATABASE_ID=<your database id>
-APPWRITE_API_KEY=<your server API key>
+APPWRITE_TASKS_TABLE_ID=tasks
+APPWRITE_PROJECTS_TABLE_ID=projects
+APPWRITE_PROFILES_TABLE_ID=profiles
+```
 
-Do NOT commit `.env` or the API key to GitHub.
+The values after `*_TABLE_ID` are your actual Appwrite table IDs. If the IDs are different from the table names, put the IDs there.
 
-## Run locally
+## User lookup flow
 
+Example:
+
+"Show Rahul's tasks"
+
+1. `search_users("Rahul")`
+2. Resolve Rahul's Appwrite Auth `$id`.
+3. `list_tasks(user_id="<Auth $id>")`
+4. Query `tasks.userId == <Auth $id>`.
+
+For projects:
+
+`projects.userId == Auth $id`
+
+For profile:
+
+`profiles.userId == Auth $id`
+
+## MCP tools
+
+### Users
+
+- `list_users`
+- `search_users`
+- `get_user`
+
+### Profiles
+
+- `get_profile`
+- `update_profile`
+
+### Projects
+
+- `list_projects`
+- `get_project`
+- `create_project`
+- `update_project`
+- `delete_project`
+
+### Tasks
+
+- `add_task`
+- `list_tasks`
+- `get_task`
+- `update_task`
+- `complete_task`
+- `delete_task`
+
+## Install
+
+```powershell
+python -m venv venv
+venv\Scripts\activate
 pip install -r requirements.txt
+copy .env.example .env
+```
+
+Fill `.env`, then test:
+
+```powershell
+python test_appwrite.py
+```
+
+Run the MCP:
+
+```powershell
 python app.py
+```
 
-The server uses Streamable HTTP.
+Endpoint:
 
-## Important security note
+`http://127.0.0.1:8000/mcp`
 
-This is deliberately admin-level access. Anyone who can call this MCP can
-potentially read data from all users that the API key can read. Do not expose
-this endpoint publicly without authentication/authorization if the data is
-private.
+## Important
 
-This package does not implement ChatGPT OAuth because you explicitly requested
-an admin/API-key model rather than per-user authentication.
+This project intentionally uses a server-side Appwrite API key and explicit `user_id`.
+
+Do not expose the MCP publicly without considering caller authentication/authorization. The task and project service also verifies ownership before get/update/delete operations.

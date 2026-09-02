@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: mydaily-mcp
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: APPWRITE_ENDPOINT
+        sync: false
+      - key: APPWRITE_PROJECT_ID
+        sync: false
+      - key: APPWRITE_API_KEY
+        sync: false
+      - key: APPWRITE_DATABASE_ID
+        sync: false
+      - key: APPWRITE_TASKS_TABLE_ID
+        sync: false
+      - key: APPWRITE_PROJECTS_TABLE_ID
+        sync: false
+      - key: APPWRITE_PROFILES_TABLE_ID
+        sync: false
+      - key: MCP_ALLOWED_HOSTS
+        sync: false
+      - key: MCP_ALLOWED_ORIGINS
+        sync: false
