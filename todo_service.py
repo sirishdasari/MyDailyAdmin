@@ -66,7 +66,7 @@ class TodoService:
             data=data,
         ))
 
-    def list_tasks(
+    def _query_tasks(
         self, user_id, project_id="", section_id="",
         is_completed=None, priority=None, due_date="", limit=100
     ):
@@ -92,11 +92,39 @@ class TodoService:
         )
         return get_list_items(result, "rows")
 
+    def list_tasks(
+        self, user_id, project_id="", section_id="",
+        is_completed=None, priority=None, due_date="", limit=100
+    ):
+        tasks = self._query_tasks(
+            user_id=user_id,
+            project_id=project_id,
+            section_id=section_id,
+            is_completed=is_completed,
+            priority=priority,
+            due_date=due_date,
+            limit=limit,
+        )
+        return {
+            "documentType": "tasks",
+            "userId": user_id,
+            "filters": {
+                "projectId": project_id or None,
+                "sectionId": section_id or None,
+                "isCompleted": is_completed,
+                "priority": priority,
+                "dueDate": due_date or None,
+                "limit": normalize_limit(limit, default=100),
+            },
+            "taskCount": len(tasks),
+            "tasks": tasks,
+        }
+
     def list_tasks_by_projects(
         self, user_id, project_ids, is_completed=None, limit_per_project=100
     ):
         return {
-            project_id: self.list_tasks(
+            project_id: self._query_tasks(
                 user_id=user_id,
                 project_id=project_id,
                 is_completed=is_completed,

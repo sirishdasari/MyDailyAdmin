@@ -182,9 +182,10 @@ def list_tasks(
     due_date: str = "",
     limit: int = 100,
 ):
-    """List up to `limit` tasks for a user, optionally filtered by project/section/status.
+    """Return one document containing up to `limit` tasks for a user.
 
-    Use the default limit of 100 unless the caller explicitly asks for fewer tasks.
+    The response is a single object with a `tasks` array. Use the default limit
+    of 100 unless the caller explicitly asks for fewer tasks.
     """
     return services()["tasks"].list_tasks(
         user_id, project_id, section_id, is_completed,
@@ -199,10 +200,11 @@ def list_project_tasks(
     is_completed: bool | None = None,
     limit_per_project: int = 100,
 ):
-    """List projects and all matching tasks for each project.
+    """Return one document containing projects and matching tasks for each project.
 
-    Use this when the user asks for tasks grouped by project. It returns every
-    project with a tasks array, up to `limit_per_project` tasks per project.
+    Use this when the user asks for tasks grouped by project. The response is a
+    single object with a `projects` array, and each project contains a `tasks`
+    array with up to `limit_per_project` tasks.
     """
     projects = services()["projects"].list_projects(
         user_id=user_id,
@@ -217,13 +219,26 @@ def list_project_tasks(
         limit_per_project=limit_per_project,
     )
 
-    return [
+    project_documents = [
         {
             **project,
             "tasks": tasks_by_project.get(project.get("$id") or project.get("id"), []),
         }
         for project in projects
     ]
+
+    return {
+        "documentType": "projectTasks",
+        "userId": user_id,
+        "filters": {
+            "includeArchivedProjects": include_archived_projects,
+            "isCompleted": is_completed,
+            "limitPerProject": limit_per_project,
+        },
+        "projectCount": len(project_documents),
+        "taskCount": sum(len(project["tasks"]) for project in project_documents),
+        "projects": project_documents,
+    }
 
 
 @mcp.tool()

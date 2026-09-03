@@ -1,4 +1,5 @@
 import os
+import json
 from dotenv import load_dotenv
 from user_service import UserService
 from todo_service import TodoService
@@ -28,7 +29,7 @@ def main():
     print(ProjectService().list_projects(user_id))
 
     print("\n=== TASKS ===")
-    print(TodoService().list_tasks(user_id))
+    print(json.dumps(TodoService().list_tasks(user_id), indent=2, default=str))
 
 if __name__ == "__main__":
     main()
