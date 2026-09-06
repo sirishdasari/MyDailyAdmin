@@ -14,6 +14,9 @@ class TodoService:
 
     tasks.userId == Appwrite Authentication Users.$id
     tasks.projectId == projects.$id
+
+    Task comments live in the MyDaily ``task_comments`` table and are loaded
+    alongside tasks for list responses.
     """
 
     def __init__(self):
@@ -24,6 +27,7 @@ class TodoService:
         self.db = TablesDB(client)
         self.database_id = os.environ["APPWRITE_DATABASE_ID"]
         self.table_id = os.environ["APPWRITE_TASKS_TABLE_ID"]
+        self.comments_table_id = os.environ.get("APPWRITE_TASK_COMMENTS_TABLE_ID", "task_comments")
 
     def add_task(
         self, user_id, content, project_id="", section_id="", parent_id="",
@@ -92,11 +96,50 @@ class TodoService:
         )
         return get_list_items(result, "rows")
 
+    def _query_comments(self, task_ids):
+        """Return comments grouped by task id from MyDaily's task_comments table."""
+        comments_by_task = {task_id: [] for task_id in task_ids}
+        if not task_ids:
+            return comments_by_task
+
+        result = self.db.list_rows(
+            database_id=self.database_id,
+            table_id=self.comments_table_id,
+            queries=[
+                Query.equal("taskId", task_ids),
+                Query.order_asc("$createdAt"),
+                Query.limit(500),
+            ],
+            total=False,
+        )
+
+        for comment in get_list_items(result, "rows"):
+            task_id = comment.get("taskId")
+            if task_id in comments_by_task:
+                comments_by_task[task_id].append(comment)
+
+        return comments_by_task
+
+    def _attach_comments(self, tasks):
+        task_ids = [
+            task.get("$id") or task.get("id")
+            for task in tasks
+            if task.get("$id") or task.get("id")
+        ]
+        comments_by_task = self._query_comments(task_ids)
+        return [
+            {
+                **task,
+                "comments": comments_by_task.get(task.get("$id") or task.get("id"), []),
+            }
+            for task in tasks
+        ]
+
     def list_tasks(
         self, user_id, project_id="", section_id="",
         is_completed=None, priority=None, due_date="", limit=100
     ):
-        tasks = self._query_tasks(
+        tasks = self._attach_comments(self._query_tasks(
             user_id=user_id,
             project_id=project_id,
             section_id=section_id,
@@ -104,7 +147,7 @@ class TodoService:
             priority=priority,
             due_date=due_date,
             limit=limit,
-        )
+        ))
         return {
             "documentType": "tasks",
             "userId": user_id,
@@ -123,7 +166,7 @@ class TodoService:
     def list_tasks_by_projects(
         self, user_id, project_ids, is_completed=None, limit_per_project=100
     ):
-        return {
+        grouped = {
             project_id: self._query_tasks(
                 user_id=user_id,
                 project_id=project_id,
@@ -131,6 +174,22 @@ class TodoService:
                 limit=limit_per_project,
             )
             for project_id in project_ids
+        }
+
+        all_tasks = [task for tasks in grouped.values() for task in tasks]
+        enriched_tasks = self._attach_comments(all_tasks)
+        enriched_by_id = {
+            task.get("$id") or task.get("id"): task
+            for task in enriched_tasks
+            if task.get("$id") or task.get("id")
+        }
+
+        return {
+            project_id: [
+                enriched_by_id.get(task.get("$id") or task.get("id"), task)
+                for task in tasks
+            ]
+            for project_id, tasks in grouped.items()
         }
 
     def _owned(self, user_id, task_id):
