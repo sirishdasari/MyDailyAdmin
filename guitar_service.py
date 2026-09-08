@@ -15,10 +15,7 @@ load_dotenv()
 class GuitarPracticeService:
     """guitarPractice table.
 
-    guitarPractice.userId == Appwrite Authentication Users.$id
-
-    Mirrors the existing mcpappwrite guitar service while applying
-    MyDaily's explicit user ownership model.
+    Guitar practice is a shared/open table. No user ID is required.
     """
 
     def __init__(self):
@@ -34,11 +31,10 @@ class GuitarPracticeService:
             "guitarPractice",
         )
 
-    def _query_practice(self, user_id, completed=None, limit=25):
+    def _query_practice(self, completed=None, limit=25):
         row_limit = normalize_limit(limit, default=25)
 
         queries = [
-            Query.equal("userId", user_id),
             Query.order_desc("$createdAt"),
             Query.limit(row_limit),
         ]
@@ -55,7 +51,7 @@ class GuitarPracticeService:
 
         return get_list_items(result, "rows")
 
-    def _owned(self, user_id, practice_id):
+    def _get(self, practice_id):
         practice = flatten_row(
             self.db.get_row(
                 database_id=self.database_id,
@@ -64,16 +60,10 @@ class GuitarPracticeService:
             )
         )
 
-        if practice.get("userId") != user_id:
-            raise PermissionError(
-                "Guitar practice does not belong to the supplied Auth user $id."
-            )
-
         return practice
 
     def add_practice(
         self,
-        user_id,
         session_name,
         completed=False,
         suggested_time="",
@@ -82,7 +72,6 @@ class GuitarPracticeService:
         daily_practice_time=0,
     ):
         data = {
-            "userId": user_id,
             "sessionName": session_name,
             "completed": completed,
             "suggestedTime": suggested_time or "",
@@ -100,16 +89,14 @@ class GuitarPracticeService:
 
         return flatten_row(row)
 
-    def list_practice(self, user_id, completed=None, limit=25):
+    def list_practice(self, completed=None, limit=25):
         practices = self._query_practice(
-            user_id=user_id,
             completed=completed,
             limit=limit,
         )
 
         return {
             "documentType": "guitarPractice",
-            "userId": user_id,
             "filters": {
                 "completed": completed,
                 "limit": normalize_limit(limit, default=25),
@@ -118,12 +105,11 @@ class GuitarPracticeService:
             "practices": practices,
         }
 
-    def get_practice(self, user_id, practice_id):
-        return self._owned(user_id, practice_id)
+    def get_practice(self, practice_id):
+        return self._get(practice_id)
 
     def update_practice(
         self,
-        user_id,
         practice_id,
         session_name="",
         completed=None,
@@ -132,7 +118,7 @@ class GuitarPracticeService:
         description="",
         daily_practice_time=None,
     ):
-        self._owned(user_id, practice_id)
+        self._get(practice_id)
         data = {}
 
         values = {
@@ -157,7 +143,7 @@ class GuitarPracticeService:
             data["dailyPracticeTime"] = daily_practice_time
 
         if not data:
-            return self.get_practice(user_id, practice_id)
+            return self.get_practice(practice_id)
 
         row = self.db.update_row(
             database_id=self.database_id,
@@ -168,7 +154,7 @@ class GuitarPracticeService:
 
         return flatten_row(row)
 
-    def complete_practice(self, user_id, practice_id):
+    def complete_practice(self, practice_id):
         self._owned(user_id, practice_id)
 
         row = self.db.update_row(
@@ -183,7 +169,7 @@ class GuitarPracticeService:
 
         return flatten_row(row)
 
-    def delete_practice(self, user_id, practice_id):
+    def delete_practice(self, practice_id):
         self._owned(user_id, practice_id)
 
         self.db.delete_row(
