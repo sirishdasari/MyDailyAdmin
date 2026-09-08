@@ -6,13 +6,14 @@ from user_service import UserService
 from todo_service import TodoService
 from project_service import ProjectService
 from profile_service import ProfileService
+from guitar_service import GuitarPracticeService
 
 mcp = MCPServer(
     "MyDailyMCP",
-    version="2.1.0",
+    version="2.2.0",
     instructions=(
         "MyDaily MCP uses Appwrite Auth Users.$id as the canonical user ID. "
-        "The profiles, projects and tasks tables store this value in userId. "
+        "The profiles, projects, tasks and guitarPractice tables store this value in userId. "
         "Tasks additionally reference projects through projectId."
     ),
 )
@@ -26,6 +27,7 @@ def services():
         _services["tasks"] = TodoService()
         _services["projects"] = ProjectService()
         _services["profiles"] = ProfileService()
+        _services["guitar"] = GuitarPracticeService()
     return _services
 
 
@@ -289,6 +291,87 @@ def complete_task(user_id: str, task_id: str):
 def delete_task(user_id: str, task_id: str):
     """Delete a task owned by the supplied Appwrite Auth user."""
     return services()["tasks"].delete_task(user_id, task_id)
+
+
+
+# ---------------- Guitar Practice ----------------
+
+@mcp.tool()
+def add_guitar_practice(
+    user_id: str,
+    session_name: str,
+    completed: bool = False,
+    suggested_time: str = "",
+    duration: int = 0,
+    description: str = "",
+    daily_practice_time: int = 0,
+):
+    """Create a guitar practice session for an Appwrite Auth user."""
+    return services()["guitar"].add_practice(
+        user_id=user_id,
+        session_name=session_name,
+        completed=completed,
+        suggested_time=suggested_time,
+        duration=duration,
+        description=description,
+        daily_practice_time=daily_practice_time,
+    )
+
+
+@mcp.tool()
+def list_guitar_practice(
+    user_id: str,
+    completed: bool | None = None,
+    limit: int = 25,
+):
+    """List guitar practice sessions belonging to an Appwrite Auth user."""
+    return services()["guitar"].list_practice(
+        user_id=user_id,
+        completed=completed,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+def get_guitar_practice(user_id: str, practice_id: str):
+    """Get a guitar practice session owned by the supplied Auth user."""
+    return services()["guitar"].get_practice(user_id, practice_id)
+
+
+@mcp.tool()
+def update_guitar_practice(
+    user_id: str,
+    practice_id: str,
+    session_name: str = "",
+    completed: bool | None = None,
+    suggested_time: str = "",
+    duration: int | None = None,
+    description: str = "",
+    daily_practice_time: int | None = None,
+):
+    """Update a guitar practice session owned by the supplied Auth user."""
+    return services()["guitar"].update_practice(
+        user_id=user_id,
+        practice_id=practice_id,
+        session_name=session_name,
+        completed=completed,
+        suggested_time=suggested_time,
+        duration=duration,
+        description=description,
+        daily_practice_time=daily_practice_time,
+    )
+
+
+@mcp.tool()
+def complete_guitar_practice(user_id: str, practice_id: str):
+    """Mark a guitar practice session complete."""
+    return services()["guitar"].complete_practice(user_id, practice_id)
+
+
+@mcp.tool()
+def delete_guitar_practice(user_id: str, practice_id: str):
+    """Delete a guitar practice session owned by the supplied Auth user."""
+    return services()["guitar"].delete_practice(user_id, practice_id)
 
 
 if __name__ == "__main__":
