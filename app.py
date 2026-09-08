@@ -13,7 +13,7 @@ mcp = MCPServer(
     version="2.2.0",
     instructions=(
         "MyDaily MCP uses Appwrite Auth Users.$id as the canonical user ID. "
-        "The profiles, projects, tasks and guitarPractice tables store this value in userId. "
+        "The profiles, projects and tasks tables store this value in userId. "
         "Tasks additionally reference projects through projectId."
     ),
 )
@@ -298,7 +298,6 @@ def delete_task(user_id: str, task_id: str):
 
 @mcp.tool()
 def add_guitar_practice(
-    user_id: str,
     session_name: str,
     completed: bool = False,
     suggested_time: str = "",
@@ -308,7 +307,6 @@ def add_guitar_practice(
 ):
     """Create a guitar practice session for an Appwrite Auth user."""
     return services()["guitar"].add_practice(
-        user_id=user_id,
         session_name=session_name,
         completed=completed,
         suggested_time=suggested_time,
@@ -320,27 +318,24 @@ def add_guitar_practice(
 
 @mcp.tool()
 def list_guitar_practice(
-    user_id: str,
     completed: bool | None = None,
     limit: int = 25,
 ):
     """List guitar practice sessions belonging to an Appwrite Auth user."""
     return services()["guitar"].list_practice(
-        user_id=user_id,
         completed=completed,
         limit=limit,
     )
 
 
 @mcp.tool()
-def get_guitar_practice(user_id: str, practice_id: str):
-    """Get a guitar practice session owned by the supplied Auth user."""
-    return services()["guitar"].get_practice(user_id, practice_id)
+def get_guitar_practice(practice_id: str):
+    """Get a guitar practice session."""
+    return services()["guitar"].get_practice(practice_id)
 
 
 @mcp.tool()
 def update_guitar_practice(
-    user_id: str,
     practice_id: str,
     session_name: str = "",
     completed: bool | None = None,
@@ -351,7 +346,6 @@ def update_guitar_practice(
 ):
     """Update a guitar practice session owned by the supplied Auth user."""
     return services()["guitar"].update_practice(
-        user_id=user_id,
         practice_id=practice_id,
         session_name=session_name,
         completed=completed,
@@ -363,15 +357,15 @@ def update_guitar_practice(
 
 
 @mcp.tool()
-def complete_guitar_practice(user_id: str, practice_id: str):
+def complete_guitar_practice(practice_id: str):
     """Mark a guitar practice session complete."""
-    return services()["guitar"].complete_practice(user_id, practice_id)
+    return services()["guitar"].complete_practice(practice_id)
 
 
 @mcp.tool()
-def delete_guitar_practice(user_id: str, practice_id: str):
-    """Delete a guitar practice session owned by the supplied Auth user."""
-    return services()["guitar"].delete_practice(user_id, practice_id)
+def delete_guitar_practice(practice_id: str):
+    """Delete a guitar practice session."""
+    return services()["guitar"].delete_practice(practice_id)
 
 
 if __name__ == "__main__":
