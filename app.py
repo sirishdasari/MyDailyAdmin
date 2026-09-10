@@ -14,7 +14,9 @@ mcp = MCPServer(
     instructions=(
         "MyDaily MCP uses Appwrite Auth Users.$id as the canonical user ID. "
         "The profiles, projects and tasks tables store this value in userId. "
-        "Tasks additionally reference projects through projectId."
+        "Tasks additionally reference projects through projectId. "
+        "Guitar practice is shared/open and does not use userId. "
+        "For guitar practice, dailyPracticeTime is action-owned practice telemetry and must not be changed by MCP."
     ),
 )
 
@@ -135,28 +137,28 @@ def delete_task(user_id: str, task_id: str):
 # ---------------- Guitar Practice ----------------
 
 @mcp.tool()
-def add_guitar_practice(session_name: str, completed: bool = False, suggested_time: str = "", duration: int = 0, description: str = "", daily_practice_time: int = 0, link: str = ""):
-    """Create a shared guitar practice session."""
-    return services()["guitar"].add_practice(session_name=session_name, completed=completed, suggested_time=suggested_time, duration=duration, description=description, daily_practice_time=daily_practice_time, link=link)
+def add_guitar_practice(session_name: str, completed: bool = False, suggested_time: str = "", duration: int = 0, description: str = "", category: str = "", level: str = "Beginner", link: str = ""):
+    """Create a shared guitar practice session. dailyPracticeTime is not set by MCP."""
+    return services()["guitar"].add_practice(session_name=session_name, completed=completed, suggested_time=suggested_time, duration=duration, description=description, category=category, level=level, link=link)
 
 @mcp.tool()
 def list_guitar_practice(completed: bool | None = None, limit: int = 25):
-    """List shared guitar practice sessions."""
+    """List shared guitar practice sessions, including category, level, link and action-owned practice time."""
     return services()["guitar"].list_practice(completed=completed, limit=limit)
 
 @mcp.tool()
 def get_guitar_practice(practice_id: str):
-    """Get a guitar practice session."""
+    """Get a guitar practice session, including category, level, link and dailyPracticeTime."""
     return services()["guitar"].get_practice(practice_id)
 
 @mcp.tool()
-def update_guitar_practice(practice_id: str, session_name: str = "", completed: bool | None = None, suggested_time: str = "", duration: int | None = None, description: str = "", daily_practice_time: int | None = None, link: str | None = None):
-    """Update a shared guitar practice session."""
-    return services()["guitar"].update_practice(practice_id=practice_id, session_name=session_name, completed=completed, suggested_time=suggested_time, duration=duration, description=description, daily_practice_time=daily_practice_time, link=link)
+def update_guitar_practice(practice_id: str, session_name: str = "", completed: bool | None = None, suggested_time: str = "", duration: int | None = None, description: str = "", category: str = "", level: str | None = None, link: str | None = None):
+    """Update a shared guitar practice session. dailyPracticeTime is never modified by MCP."""
+    return services()["guitar"].update_practice(practice_id=practice_id, session_name=session_name, completed=completed, suggested_time=suggested_time, duration=duration, description=description, category=category, level=level, link=link)
 
 @mcp.tool()
 def complete_guitar_practice(practice_id: str):
-    """Mark a guitar practice session complete."""
+    """Mark a guitar practice session complete without changing dailyPracticeTime."""
     return services()["guitar"].complete_practice(practice_id)
 
 @mcp.tool()
