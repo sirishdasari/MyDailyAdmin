@@ -93,13 +93,13 @@ def delete_project(user_id: str, project_id: str):
 # ---------------- Tasks ----------------
 
 @mcp.tool()
-def add_task(user_id: str, content: str, project_id: str = "", section_id: str = "", parent_id: str = "", description: str = "", label_ids: list[str] | None = None, priority: int = 4, order: float = 0, day_order: float = 0, due_date: str = "", due_string: str = "", due_timezone: str = "", due_is_recurring: bool = False, duration: int | None = None, duration_unit: str = "", assigned_by_uid: str = "", responsible_uid: str = ""):
-    """Create a task."""
-    return services()["tasks"].add_task(user_id, content, project_id, section_id, parent_id, description, label_ids, priority, order, day_order, due_date, due_string, due_timezone, due_is_recurring, duration, duration_unit, assigned_by_uid, responsible_uid)
+def add_task(user_id: str, content: str, project_id: str = "", section_id: str = "", parent_id: str = "", description: str = "", label_ids: list[str] | None = None, priority: int = 4, order: float = 0, day_order: float = 0, due_date: str = "", due_string: str = "", due_timezone: str = "", due_is_recurring: bool = False, duration: int | None = None, duration_unit: str = "", assigned_by_uid: str = "", responsible_uid: str = "", youtube_link: str = ""):
+    """Create a task, optionally with a YouTube URL."""
+    return services()["tasks"].add_task(user_id, content, project_id, section_id, parent_id, description, label_ids, priority, order, day_order, due_date, due_string, due_timezone, due_is_recurring, duration, duration_unit, assigned_by_uid, responsible_uid, youtube_link)
 
 @mcp.tool()
 def list_tasks(user_id: str, project_id: str = "", section_id: str = "", is_completed: bool | None = None, priority: int | None = None, due_date: str = "", limit: int = 100):
-    """List tasks for a user."""
+    """List tasks for a user. Returned task records include youtubeLink when stored."""
     return services()["tasks"].list_tasks(user_id, project_id, section_id, is_completed, priority, due_date, limit)
 
 @mcp.tool()
@@ -113,13 +113,13 @@ def list_project_tasks(user_id: str, include_archived_projects: bool = False, is
 
 @mcp.tool()
 def get_task(user_id: str, task_id: str):
-    """Get a task owned by the supplied Auth user."""
+    """Get a task owned by the supplied Auth user, including its YouTube URL when stored."""
     return services()["tasks"].get_task(user_id, task_id)
 
 @mcp.tool()
-def update_task(user_id: str, task_id: str, content: str = "", description: str = "", project_id: str = "", section_id: str = "", parent_id: str = "", label_ids: list[str] | None = None, priority: int | None = None, order: float | None = None, day_order: float | None = None, due_date: str = "", due_string: str = "", due_timezone: str = "", due_is_recurring: bool | None = None, duration: int | None = None, duration_unit: str = "", assigned_by_uid: str = "", responsible_uid: str = "", is_completed: bool | None = None):
-    """Update a task."""
-    return services()["tasks"].update_task(user_id, task_id, content, description, project_id, section_id, parent_id, label_ids, priority, order, day_order, due_date, due_string, due_timezone, due_is_recurring, duration, duration_unit, assigned_by_uid, responsible_uid, is_completed)
+def update_task(user_id: str, task_id: str, content: str = "", description: str = "", project_id: str = "", section_id: str = "", parent_id: str = "", label_ids: list[str] | None = None, priority: int | None = None, order: float | None = None, day_order: float | None = None, due_date: str = "", due_string: str = "", due_timezone: str = "", due_is_recurring: bool | None = None, duration: int | None = None, duration_unit: str = "", assigned_by_uid: str = "", responsible_uid: str = "", is_completed: bool | None = None, youtube_link: str | None = None):
+    """Update a task, including its optional YouTube URL."""
+    return services()["tasks"].update_task(user_id, task_id, content, description, project_id, section_id, parent_id, label_ids, priority, order, day_order, due_date, due_string, due_timezone, due_is_recurring, duration, duration_unit, assigned_by_uid, responsible_uid, is_completed, youtube_link)
 
 @mcp.tool()
 def complete_task(user_id: str, task_id: str):
