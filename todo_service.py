@@ -33,7 +33,8 @@ class TodoService:
         self, user_id, content, project_id="", section_id="", parent_id="",
         description="", label_ids=None, priority=4, order=0, day_order=0,
         due_date="", due_string="", due_timezone="", due_is_recurring=False,
-        duration=None, duration_unit="", assigned_by_uid="", responsible_uid=""
+        duration=None, duration_unit="", assigned_by_uid="", responsible_uid="",
+        youtube_link=""
     ):
         data = {
             "userId": user_id,
@@ -58,6 +59,7 @@ class TodoService:
             "durationUnit": duration_unit,
             "assignedByUid": assigned_by_uid,
             "responsibleUid": responsible_uid,
+            "youtubeLink": youtube_link,
         }
         for key, value in optional.items():
             if value not in ("", None):
@@ -211,7 +213,7 @@ class TodoService:
         priority=None, order=None, day_order=None, due_date="",
         due_string="", due_timezone="", due_is_recurring=None,
         duration=None, duration_unit="", assigned_by_uid="",
-        responsible_uid="", is_completed=None
+        responsible_uid="", is_completed=None, youtube_link=None
     ):
         self._owned(user_id, task_id)
         data = {}
@@ -233,6 +235,8 @@ class TodoService:
             if value:
                 data[key] = value
 
+        if youtube_link is not None:
+            data["youtubeLink"] = youtube_link
         if label_ids is not None: data["labelIds"] = label_ids
         if priority is not None: data["priority"] = priority
         if order is not None: data["order"] = order
