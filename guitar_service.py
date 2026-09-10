@@ -16,7 +16,11 @@ class GuitarPracticeService:
     """guitarPractice table.
 
     Guitar practice is a shared/open table. No user ID is required.
+    dailyPracticeTime is action-owned practice telemetry and is never written
+    or changed by the MCP CRUD operations.
     """
+
+    ALLOWED_LEVELS = {"Beginner", "Intermediate", "Advanced"}
 
     def __init__(self):
         client = Client()
@@ -48,17 +52,25 @@ class GuitarPracticeService:
             row_id=practice_id,
         ))
 
+    def _validate_level(self, level):
+        if level not in self.ALLOWED_LEVELS:
+            raise ValueError("level must be one of: Beginner, Intermediate, Advanced")
+
     def add_practice(self, session_name, completed=False, suggested_time="", duration=0,
-                     description="", daily_practice_time=0, link=""):
+                     description="", category="", level="Beginner", link=""):
+        self._validate_level(level)
         data = {
             "sessionName": session_name,
             "completed": completed,
             "suggestedTime": suggested_time or "",
             "duration": duration,
             "description": description or "",
-            "dailyPracticeTime": daily_practice_time,
+            "category": category or "",
+            "level": level,
             "link": link or "",
         }
+        # dailyPracticeTime is intentionally omitted. Appwrite keeps its
+        # default value (0), and practice actions are responsible for updating it.
         row = self.db.create_row(
             database_id=self.database_id,
             table_id=self.table_id,
@@ -80,17 +92,21 @@ class GuitarPracticeService:
         return self._get(practice_id)
 
     def update_practice(self, practice_id, session_name="", completed=None, suggested_time="",
-                        duration=None, description="", daily_practice_time=None, link=None):
+                        duration=None, description="", category="", level=None, link=None):
         self._get(practice_id)
         data = {}
         values = {
             "sessionName": session_name,
             "suggestedTime": suggested_time,
             "description": description,
+            "category": category,
         }
         for key, value in values.items():
             if value != "":
                 data[key] = value
+        if level is not None:
+            self._validate_level(level)
+            data["level"] = level
         if link is not None:
             data["link"] = link
         if completed is not None:
@@ -99,8 +115,7 @@ class GuitarPracticeService:
                 data["completedAt"] = datetime.now(timezone.utc).isoformat()
         if duration is not None:
             data["duration"] = duration
-        if daily_practice_time is not None:
-            data["dailyPracticeTime"] = daily_practice_time
+        # dailyPracticeTime is intentionally never included in update data.
         if not data:
             return self.get_practice(practice_id)
         row = self.db.update_row(
