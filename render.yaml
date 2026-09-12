@@ -19,6 +19,12 @@ services:
         sync: false
       - key: APPWRITE_PROFILES_TABLE_ID
         sync: false
+      - key: APPWRITE_GUITAR_ENDPOINT
+        sync: false
+      - key: APPWRITE_GUITAR_PROJECT_ID
+        sync: false
+      - key: APPWRITE_GUITAR_DATABASE_ID
+        sync: false
       - key: APPWRITE_GUITAR_PRACTICE_TABLE_ID
         sync: false
       - key: MCP_ALLOWED_HOSTS
