@@ -137,8 +137,8 @@ def delete_task(user_id: str, task_id: str):
 # ---------------- Guitar Practice ----------------
 
 @mcp.tool()
-def add_guitar_practice(session_name: str, completed: bool = False, suggested_time: str = "", duration: int = 0, description: str = "", category: str = "", level: str = "Beginner", link: str = ""):
-    """Create a shared guitar practice session. dailyPracticeTime is not set by MCP."""
+def add_guitar_practice(session_name: str, completed: bool = False, suggested_time: int = 0, duration: int = 0, description: str = "", category: str = "", level: str = "Beginner", link: str = ""):
+    """Create a shared guitar practice session. suggested_time is an integer; dailyPracticeTime is not set by MCP."""
     return services()["guitar"].add_practice(session_name=session_name, completed=completed, suggested_time=suggested_time, duration=duration, description=description, category=category, level=level, link=link)
 
 @mcp.tool()
@@ -152,8 +152,8 @@ def get_guitar_practice(practice_id: str):
     return services()["guitar"].get_practice(practice_id)
 
 @mcp.tool()
-def update_guitar_practice(practice_id: str, session_name: str = "", completed: bool | None = None, suggested_time: str = "", duration: int | None = None, description: str = "", category: str = "", level: str | None = None, link: str | None = None):
-    """Update a shared guitar practice session. dailyPracticeTime is never modified by MCP."""
+def update_guitar_practice(practice_id: str, session_name: str = "", completed: bool | None = None, suggested_time: int | None = None, duration: int | None = None, description: str = "", category: str = "", level: str | None = None, link: str | None = None):
+    """Update a shared guitar practice session. suggested_time is an integer; dailyPracticeTime is never modified by MCP."""
     return services()["guitar"].update_practice(practice_id=practice_id, session_name=session_name, completed=completed, suggested_time=suggested_time, duration=duration, description=description, category=category, level=level, link=link)
 
 @mcp.tool()
