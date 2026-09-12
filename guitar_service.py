@@ -13,9 +13,12 @@ load_dotenv()
 
 
 class GuitarPracticeService:
-    """guitarPractice table.
+    """Shared/open guitar practice tables.
 
-    Guitar practice is a shared/open table. No user ID is required.
+    Guitar practice is intentionally independent from MyDaily user data.
+    It uses the public Appwrite client configuration below and does not
+    require an Appwrite API key or user ID.
+
     dailyPracticeTime is action-owned practice telemetry and is never written
     or changed by the MCP CRUD operations.
     """
@@ -24,13 +27,26 @@ class GuitarPracticeService:
 
     def __init__(self):
         client = Client()
-        client.set_endpoint(os.environ["APPWRITE_ENDPOINT"])
-        client.set_project(os.environ["APPWRITE_PROJECT_ID"])
-        client.set_key(os.environ["APPWRITE_API_KEY"])
+        client.set_endpoint(
+            os.environ.get(
+                "APPWRITE_GUITAR_ENDPOINT",
+                "https://fra.cloud.appwrite.io/v1",
+            )
+        )
+        client.set_project(
+            os.environ.get("APPWRITE_GUITAR_PROJECT_ID", "6a9e3d930019d4da40b4")
+        )
 
+        # Guitar tables are public/open. Do not use the server API key here.
         self.db = TablesDB(client)
-        self.database_id = os.environ["APPWRITE_DATABASE_ID"]
-        self.table_id = os.environ.get("APPWRITE_GUITAR_PRACTICE_TABLE_ID", "guitarPractice")
+        self.database_id = os.environ.get(
+            "APPWRITE_GUITAR_DATABASE_ID",
+            "6aa4ebf0000a4f853d1b",
+        )
+        self.table_id = os.environ.get(
+            "APPWRITE_GUITAR_PRACTICE_TABLE_ID",
+            "guitarpractice",
+        )
 
     def _query_practice(self, completed=None, limit=25):
         row_limit = normalize_limit(limit, default=25)
