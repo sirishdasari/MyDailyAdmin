@@ -72,6 +72,31 @@ class GuitarPracticeService:
         if level not in self.ALLOWED_LEVELS:
             raise ValueError("level must be one of: Beginner, Intermediate, Advanced")
 
+    def _create_row(self, data):
+        """Create a row with diagnostics so deployment failures are visible."""
+        print(
+            "[guitar] create_practice: "
+            f"endpoint={os.environ.get('APPWRITE_GUITAR_ENDPOINT', 'default')} "
+            f"project={os.environ.get('APPWRITE_GUITAR_PROJECT_ID', 'default')} "
+            f"database={self.database_id} table={self.table_id}"
+        )
+        print(f"[guitar] create_practice data={data}")
+        try:
+            row = self.db.create_row(
+                database_id=self.database_id,
+                table_id=self.table_id,
+                row_id=ID.unique(),
+                data=data,
+            )
+            print("[guitar] create_practice: Appwrite create_row succeeded")
+            return row
+        except Exception as exc:
+            print(
+                "[guitar] create_practice FAILED: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            raise
+
     def add_practice(self, session_name, completed=False, suggested_time="", duration=0,
                      description="", category="", level="Beginner", link=""):
         self._validate_level(level)
@@ -87,13 +112,7 @@ class GuitarPracticeService:
         }
         # dailyPracticeTime is intentionally omitted. Appwrite keeps its
         # default value (0), and practice actions are responsible for updating it.
-        row = self.db.create_row(
-            database_id=self.database_id,
-            table_id=self.table_id,
-            row_id=ID.unique(),
-            data=data,
-        )
-        return flatten_row(row)
+        return flatten_row(self._create_row(data))
 
     def list_practice(self, completed=None, limit=25):
         practices = self._query_practice(completed=completed, limit=limit)
