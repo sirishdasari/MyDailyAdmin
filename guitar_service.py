@@ -97,14 +97,14 @@ class GuitarPracticeService:
             )
             raise
 
-    def add_practice(self, session_name, completed=False, suggested_time="", duration=0,
+    def add_practice(self, session_name, completed=False, suggested_time=0, duration=0,
                      description="", category="", level="Beginner", link=""):
         self._validate_level(level)
         data = {
             "sessionName": session_name,
             "completed": completed,
-            "suggestedTime": suggested_time or "",
-            "duration": duration,
+            "suggestedTime": int(suggested_time),
+            "duration": int(duration),
             "description": description or "",
             "category": category or "",
             "level": level,
@@ -126,19 +126,20 @@ class GuitarPracticeService:
     def get_practice(self, practice_id):
         return self._get(practice_id)
 
-    def update_practice(self, practice_id, session_name="", completed=None, suggested_time="",
+    def update_practice(self, practice_id, session_name="", completed=None, suggested_time=None,
                         duration=None, description="", category="", level=None, link=None):
         self._get(practice_id)
         data = {}
         values = {
             "sessionName": session_name,
-            "suggestedTime": suggested_time,
             "description": description,
             "category": category,
         }
         for key, value in values.items():
             if value != "":
                 data[key] = value
+        if suggested_time is not None:
+            data["suggestedTime"] = int(suggested_time)
         if level is not None:
             self._validate_level(level)
             data["level"] = level
@@ -149,7 +150,7 @@ class GuitarPracticeService:
             if completed:
                 data["completedAt"] = datetime.now(timezone.utc).isoformat()
         if duration is not None:
-            data["duration"] = duration
+            data["duration"] = int(duration)
         # dailyPracticeTime is intentionally never included in update data.
         if not data:
             return self.get_practice(practice_id)
