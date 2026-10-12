@@ -27,6 +27,8 @@ services:
         sync: false
       - key: APPWRITE_GUITAR_PRACTICE_TABLE_ID
         sync: false
+      - key: APPWRITE_GUITAR_PRACTICE_RECORDS_TABLE_ID
+        sync: false
       - key: MCP_ALLOWED_HOSTS
         sync: false
       - key: MCP_ALLOWED_ORIGINS

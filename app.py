@@ -10,7 +10,7 @@ from guitar_service import GuitarPracticeService
 
 mcp = MCPServer(
     "MyDailyMCP",
-    version="2.2.0",
+    version="2.3.0",
     instructions=(
         "MyDaily MCP uses Appwrite Auth Users.$id as the canonical user ID. "
         "The profiles, projects and tasks tables store this value in userId. "
@@ -145,6 +145,27 @@ def add_guitar_practice(session_name: str, completed: bool = False, suggested_ti
 def list_guitar_practice(completed: bool | None = None, limit: int = 25):
     """List shared guitar practice sessions, including category, level, link and action-owned practice time."""
     return services()["guitar"].list_practice(completed=completed, limit=limit)
+
+@mcp.tool()
+def list_guitar_practice_records(
+    session_id: str | None = None,
+    practice_date: str | None = None,
+    completed: bool | None = None,
+    limit: int = 25,
+):
+    """List actual practice records, enriched with linked curriculum details.
+
+    session_id is an exact sessionId filter; practice_date uses YYYY-MM-DD;
+    completed is a nullable boolean. Record duration is in seconds. A
+    general-practice or unknown curriculum link is returned with session=null.
+    """
+    return services()["guitar"].list_practice_records(
+        session_id=session_id,
+        practice_date=practice_date,
+        completed=completed,
+        limit=limit,
+    )
+
 
 @mcp.tool()
 def get_guitar_practice(practice_id: str):
