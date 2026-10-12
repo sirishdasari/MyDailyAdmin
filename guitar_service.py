@@ -24,6 +24,7 @@ class GuitarPracticeService:
     """
 
     ALLOWED_LEVELS = {"Beginner", "Intermediate", "Advanced"}
+    GENERAL_PRACTICE_SESSION_ID = "general-practice"
 
     def __init__(self):
         client = Client()
@@ -47,6 +48,10 @@ class GuitarPracticeService:
             "APPWRITE_GUITAR_PRACTICE_TABLE_ID",
             "guitarpractice",
         )
+        self.practice_records_table_id = os.environ.get(
+            "APPWRITE_GUITAR_PRACTICE_RECORDS_TABLE_ID",
+            "guitarPracticeRecords",
+        )
 
     def _query_practice(self, completed=None, limit=25):
         row_limit = normalize_limit(limit, default=25)
@@ -67,6 +72,145 @@ class GuitarPracticeService:
             table_id=self.table_id,
             row_id=practice_id,
         ))
+
+    @staticmethod
+    def _record_query_error_is_sort_index_issue(exc):
+        """Recognize Appwrite errors where a startedAt index is unavailable."""
+        message = str(exc).lower()
+        return "index" in message or "startedat" in message or "order" in message
+
+    @staticmethod
+    def _validate_practice_date(practice_date):
+        if practice_date in (None, ""):
+            return
+        try:
+            parsed = datetime.strptime(practice_date, "%Y-%m-%d")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "practice_date must be an exact date in YYYY-MM-DD format"
+            ) from exc
+        if parsed.strftime("%Y-%m-%d") != practice_date:
+            raise ValueError(
+                "practice_date must be an exact date in YYYY-MM-DD format"
+            )
+
+    @staticmethod
+    def _record_session_data(session):
+        """Expose curriculum details without mixing in its durations/telemetry."""
+        if session is None:
+            return None
+        return {
+            "$id": session.get("$id") or session.get("id"),
+            "sessionName": session.get("sessionName"),
+            "category": session.get("category"),
+            "level": session.get("level"),
+            "suggestedTime": session.get("suggestedTime"),
+            "link": session.get("link"),
+        }
+
+    def list_practice_records(
+        self, session_id=None, practice_date=None, completed=None, limit=25
+    ):
+        """Read actual practice records and enrich them with curriculum data.
+
+        guitarPracticeRecords.duration is returned unchanged in seconds.
+        This method is read-only and never modifies dailyPracticeTime.
+        """
+        row_limit = normalize_limit(limit, default=25)
+        self._validate_practice_date(practice_date)
+
+        filters = []
+        if session_id not in (None, ""):
+            filters.append(Query.equal("sessionId", session_id))
+        if practice_date not in (None, ""):
+            filters.append(Query.equal("practiceDate", practice_date))
+        if completed is not None:
+            filters.append(Query.equal("completed", completed))
+
+        try:
+            result = self.db.list_rows(
+                database_id=self.database_id,
+                table_id=self.practice_records_table_id,
+                queries=[
+                    *filters,
+                    Query.order_desc("startedAt"),
+                    Query.limit(row_limit),
+                ],
+                total=False,
+            )
+        except Exception as exc:
+            if not self._record_query_error_is_sort_index_issue(exc):
+                raise
+            # Fallback for deployments lacking a startedAt index. This keeps the
+            # query supported and locally sorts the returned page by startedAt.
+            # A startedAt index is recommended to ensure globally correct paging.
+            result = self.db.list_rows(
+                database_id=self.database_id,
+                table_id=self.practice_records_table_id,
+                queries=[
+                    *filters,
+                    Query.order_desc("$createdAt"),
+                    Query.limit(row_limit),
+                ],
+                total=False,
+            )
+
+        records = get_list_items(result, "rows")
+        records.sort(key=lambda row: row.get("startedAt") or "", reverse=True)
+
+        # Read each distinct curriculum row at most once per request.
+        linked_ids = {
+            record.get("sessionId")
+            for record in records
+            if record.get("sessionId")
+            and record.get("sessionId") != self.GENERAL_PRACTICE_SESSION_ID
+        }
+        sessions_by_id = {}
+        for linked_id in linked_ids:
+            try:
+                sessions_by_id[linked_id] = self._record_session_data(
+                    self._get(linked_id)
+                )
+            except Exception as exc:
+                if self._is_missing_row_error(exc):
+                    # Preserve broken/orphaned records with session=null.
+                    continue
+                raise
+
+        enriched_records = []
+        for record in records:
+            enriched = dict(record)
+            linked_id = record.get("sessionId")
+            enriched["session"] = (
+                None
+                if linked_id in (None, "", self.GENERAL_PRACTICE_SESSION_ID)
+                else sessions_by_id.get(linked_id)
+            )
+            enriched_records.append(enriched)
+
+        return {
+            "documentType": "guitarPracticeRecords",
+            "filters": {
+                "session_id": session_id,
+                "practice_date": practice_date,
+                "completed": completed,
+                "limit": row_limit,
+            },
+            "recordCount": len(enriched_records),
+            "totalDurationSeconds": sum(
+                record.get("duration", 0)
+                for record in enriched_records
+                if isinstance(record.get("duration"), (int, float))
+                and not isinstance(record.get("duration"), bool)
+            ),
+            "records": enriched_records,
+        }
+
+    @staticmethod
+    def _is_missing_row_error(exc):
+        message = str(exc).lower()
+        code = getattr(exc, "code", None)
+        return code == 404 or "not found" in message or "row does not exist" in message
 
     def _validate_level(self, level):
         if level not in self.ALLOWED_LEVELS:
